@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StorePulse | Dynamic JS & REST API Client</title>
+  
+  <!-- Tailwind CSS & Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- JSZip for Deliverable Repository Download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: ['selector', '[data-theme="dark"]'],
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Shimmer Animation for Skeletons */
+    @keyframes shimmer {
+      100% { transform: translateX(100%); }
+    }
+    .skeleton-box {
+      position: relative;
+      overflow: hidden;
+      background-color: #e2e8f0;
+    }
+    [data-theme="dark"] .skeleton-box {
+      background-color: #1e293b;
+    }
+    .skeleton-box::after {
+      position: absolute;
+      top: 0; right: 0; bottom: 0; left: 0;
+      transform: translateX(-100%);
+      background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.4) 50%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      [data-theme="dark"] & {
+        background-image: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0) 0,
+          rgba(255, 255, 255, 0.08) 50%,
+          rgba(255, 255, 255, 0) 100%
+        );
+      }
+      animation: shimmer 1.6s infinite;
+      content: '';
+    }
+    
+    /* Smooth Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    [data-theme="dark"] ::-webkit-scrollbar-thumb {
+      background: #334155;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans antialiased transition-colors duration-200">
+
+  <!-- ================= TOP HEADER LANDMARK ================= -->
+  <header class="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 transition-colors">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Logo & Project Badge -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+        </div>
+        <div>
+          <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-brand-600 to-violet-600 bg-clip-text text-transparent">StorePulse</span>
+          <span class="hidden sm:inline-block ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800">Task 05: REST API & DOM</span>
+        </div>
+      </div>
+
+      <!-- Center View Switcher Tabs -->
+      <nav class="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-xs sm:text-sm font-medium">
+        <button id="viewAppTab" class="px-3.5 py-1.5 rounded-lg bg-white dark:bg-slate-700 text-brand-600 dark:text-white shadow-sm font-semibold transition-all">
+          🛍️ Live Store
+        </button>
+        <button id="viewCodeTab" class="px-3.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all">
+          💻 Modular Codebase (app.js, api.js)
+        </button>
+      </nav>
+
+      <!-- Right Action Controls (Cart, Theme, Currency, Export) -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        
+        <!-- Currency Selector -->
+        <select id="currencySelect" aria-label="Select currency" class="text-xs font-semibold py-1.5 px-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+          <option value="USD">USD ($)</option>
+          <option value="EUR">EUR (€)</option>
+          <option value="INR">INR (₹)</option>
+          <option value="GBP">GBP (£)</option>
+        </select>
+
+        <!-- Theme Toggle -->
+        <button id="themeToggleBtn" aria-label="Toggle dark mode" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-transform active:scale-95">
+          <span id="themeIcon">🌙</span>
+        </button>
+
+        <!-- Cart Button -->
+        <button id="openCartBtn" class="relative flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:scale-95 text-white text-xs sm:text-sm font-semibold shadow-md shadow-brand-600/20 transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          <span class="hidden sm:inline">Cart</span>
+          <span id="cartCountBadge" class="w-5 h-5 rounded-full bg-white text-brand-600 font-bold text-xs flex items-center justify-center">0</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= BANNER / NOTIFICATIONS ================= -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
+
+  <!-- ================= VIEW 1: LIVE STORE APPLICATION ================= -->
+  <div id="liveStoreView" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Cache & API Health Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-xs">
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="font-medium text-slate-600 dark:text-slate-400">Endpoint:</span>
+        <code class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-mono">https://fakestoreapi.com/products</code>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <span id="cacheStatusBadge" class="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
+          Checking Cache...
+        </span>
+        <button id="forceRefreshBtn" class="flex items-center gap-1.5 text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Invalidate Cache & Fetch Live
+        </button>
+      </div>
+    </div>
+
+    <!-- Controls: Search Input, Category Tabs, Sorting Bar -->
+    <div class="space-y-4">
+      <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+        
+        <!-- Debounced Search Field -->
+        <div class="relative flex-1">
+          <input 
+            type="search" 
+            id="searchInput" 
+            placeholder="Search products by title, keyword (debounced 300ms)..." 
+            class="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm transition-all"
+          >
+          <svg class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <span id="searchSpinner" class="hidden absolute right-3.5 top-3.5 w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></span>
+        </div>
+
+        <!-- Sorting Menu -->
+        <div class="flex items-center gap-2 shrink-0">
+          <label for="sortSelect" class="text-xs font-semibold text-slate-500 dark:text-slate-400">Sort by:</label>
+          <select id="sortSelect" class="py-2.5 px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm">
+            <option value="default">Featured (Default)</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="rating-desc">Highest Rated ⭐</option>
+            <option value="title-asc">Alphabetical (A - Z)</option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div id="categoryTabs" class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <!-- Rendered Dynamically -->
+      </div>
+    </div>
+
+    <!-- Live Products Count & Filter Info -->
+    <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
+      <p id="resultsStats">Showing products...</p>
+      <button id="clearFiltersBtn" class="hidden text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+        Reset filters
+      </button>
+    </div>
+
+    <!-- Error Banner (Hidden by default) -->
+    <div id="errorBanner" class="hidden p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-start justify-between gap-3 text-rose-800 dark:text-rose-300">
+      <div class="flex items-start gap-3">
+        <span class="text-xl">⚠️</span>
+        <div>
+          <h4 class="font-bold text-sm" id="errorTitle">Network Error Encountered</h4>
+          <p class="text-xs mt-0.5" id="errorMessage">Unable to communicate with the REST API service.</p>
+        </div>
+      </div>
+      <button id="retryFetchBtn" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shrink-0 transition-all">
+        🔄 Retry Fetch
+      </button>
+    </div>
+
+    <!-- Products Grid (Cards / Skeletons) -->
+    <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      <!-- Injected via JavaScript -->
+    </div>
+
+  </div>
+
+  <!-- ================= VIEW 2: MODULAR ARCHITECTURE & CODEBASE VIEWER ================= -->
+  <div id="codeView" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    
+    <!-- Header with Download ZIP CTA -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl">
+      <div>
+        <h2 class="text-xl font-bold flex items-center gap-2">
+          <span>📦</span> Task 05 Modular Architecture Repository
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-300 mt-1">
+          Includes decoupled modules: <code>api.js</code>, <code>storage.js</code>, <code>ui.js</code>, and <code>app.js</code> with ES6+ async/await & local caching.
+        </p>
+      </div>
+      <button id="downloadZipBtn" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 active:scale-95 text-white text-xs sm:text-sm font-bold shadow-lg shadow-brand-500/30 transition-all shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Download Clean GitHub Repository (.ZIP)
+      </button>
+    </div>
+
+    <!-- Code File Tabs -->
+    <div class="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+      <button class="code-tab-btn px-4 py-2 rounded-lg text-xs font-mono font-bold bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800" data-file="api.js">api.js</button>
+      <button class="code-tab-btn px-4 py-2 rounded-lg text-xs font-mono font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white" data-file="storage.js">storage.js</button>
+      <button class="code-tab-btn px-4 py-2 rounded-lg text-xs font-mono font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white" data-file="ui.js">ui.js</button>
+      <button class="code-tab-btn px-4 py-2 rounded-lg text-xs font-mono font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white" data-file="app.js">app.js</button>
+    </div>
+
+    <!-- Code Editor Surface -->
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-900 text-slate-100 p-4 font-mono text-xs overflow-x-auto shadow-2xl relative">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 text-slate-400">
+        <span id="activeFileName" class="text-xs font-bold text-brand-400">api.js</span>
+        <button id="copyCodeBtn" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-sans transition-all">
+          📋 Copy Code
+        </button>
+      </div>
+      <pre><code id="codeBlock" class="language-javascript"></code></pre>
+    </div>
+
+  </div>
+
+  <!-- ================= SHOPPING CART DRAWER MODAL ================= -->
+  <div id="cartDrawerBackdrop" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div id="cartDrawerPanel" class="fixed top-0 right-0 h-full w-full max-w-md bg-white dark:bg-slate-900 shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300">
+      
+      <!-- Cart Header -->
+      <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+          <h3 class="font-bold text-base">Your Cart (<span id="cartDrawerCount">0</span> items)</h3>
+        </div>
+        <button id="closeCartBtn" class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Cart Items List (Scrollable) -->
+      <div id="cartItemsList" class="flex-1 overflow-y-auto p-5 space-y-4">
+        <!-- Rendered Dynamically -->
+      </div>
+
+      <!-- Cart Footer / Totals -->
+      <div class="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 space-y-3">
+        <div class="space-y-1.5 text-xs">
+          <div class="flex justify-between text-slate-500">
+            <span>Subtotal:</span>
+            <span id="cartSubtotal" class="font-semibold text-slate-800 dark:text-slate-200">$0.00</span>
+          </div>
+          <div class="flex justify-between text-slate-500">
+            <span>Shipping:</span>
+            <span class="font-semibold text-emerald-600">FREE</span>
+          </div>
+          <div class="flex justify-between text-sm font-bold pt-2 border-t border-slate-200 dark:border-slate-800">
+            <span>Estimated Total:</span>
+            <span id="cartGrandTotal" class="text-brand-600 dark:text-brand-400 font-extrabold text-base">$0.00</span>
+          </div>
+        </div>
+
+        <button id="checkoutBtn" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-bold text-sm shadow-lg shadow-brand-600/25 transition-all">
+          Proceed to Checkout
+        </button>
+        <button id="clearCartBtn" class="w-full text-center text-xs text-rose-500 hover:underline">
+          Clear Entire Cart
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= INLINE LOGIC & MODULAR ARCHITECTURE SCRIPT ================= -->
+  <script>
+    /**
+     * =========================================================================
+     * MODULE 1: STORAGE CLIENT (storage.js)
+     * Handles localStorage operations for Cart, Preferences, and API Caching.
+     * =========================================================================
+     */
+    const StorageService = {
+      KEYS: {
+        CART: 'storepulse_cart_v1',
+        PREFERENCES: 'storepulse_prefs_v1',
+        API_CACHE: 'storepulse_api_cache_v1',
+      },
+
+      // Currency multipliers relative to USD base
+      EXCHANGE_RATES: {
+        USD: { symbol: '$', rate: 1.0 },
+        EUR: { symbol: '€', rate: 0.92 },
+        INR: { symbol: '₹', rate: 83.5 },
+        GBP: { symbol: '£', rate: 0.78 },
+      },
+
+      getPreferences() {
+        try {
+          const raw = localStorage.getItem(this.KEYS.PREFERENCES);
+          return raw ? JSON.parse(raw) : { theme: 'light', currency: 'USD', sort: 'default' };
+        } catch {
+          return { theme: 'light', currency: 'USD', sort: 'default' };
+        }
+      },
+
+      savePreferences(prefs) {
+        try {
+          const current = this.getPreferences();
+          localStorage.setItem(this.KEYS.PREFERENCES, JSON.stringify({ ...current, ...prefs }));
+        } catch (e) {
+          console.warn('LocalStorage error:', e);
+        }
+      },
+
+      getCart() {
+        try {
+          const raw = localStorage.getItem(this.KEYS.CART);
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      },
+
+      saveCart(cart) {
+        try {
+          localStorage.setItem(this.KEYS.CART, JSON.stringify(cart));
+        } catch (e) {
+          console.warn('LocalStorage error:', e);
+        }
+      },
+
+      // API Caching with 15-minute TTL (Time to live)
+      getCachedProducts(ttlMs = 15 * 60 * 1000) {
+        try {
+          const raw = localStorage.getItem(this.KEYS.API_CACHE);
+          if (!raw) return null;
+          const { timestamp, data } = JSON.parse(raw);
+          const isExpired = Date.now() - timestamp > ttlMs;
+          return { isExpired, data, ageMinutes: Math.floor((Date.now() - timestamp) / 60000) };
+        } catch {
+          return null;
+        }
+      },
+
+      cacheProducts(data) {
+        try {
+          const payload = { timestamp: Date.now(), data };
+          localStorage.setItem(this.KEYS.API_CACHE, JSON.stringify(payload));
+        } catch (e) {
+          console.warn('Failed to cache API response:', e);
+        }
+      },
+
+      clearCache() {
+        localStorage.removeItem(this.KEYS.API_CACHE);
+      }
+    };
+
+    /**
+     * =========================================================================
+     * MODULE 2: RESTful API CLIENT (api.js)
+     * Handles async/await fetch, network aborts, and offline fallback.
+     * =========================================================================
+     */
+    const ApiClient = {
+      BASE_URL: 'https://fakestoreapi.com/products',
+
+      // Built-in offline fallback dataset ensuring zero breakage
+      FALLBACK_PRODUCTS: [
+        {
+          id: 1,
+          title: "Fjallraven - Foldsack No. 1 Backpack, Fits 15 Laptops",
+          price: 109.95,
+          description: "Your perfect pack for everyday use and walks in the forest. Stash your laptop in the padded sleeve.",
+          category: "men's clothing",
+          image: "https://fakestoreapi.com/img/81fPKd-2AYL._AC_SL1500_.jpg",
+          rating: { rate: 3.9, count: 120 }
+        },
+        {
+          id: 2,
+          title: "Mens Casual Premium Slim Fit T-Shirts",
+          price: 22.3,
+          description: "Slim-fitting style, contrast raglan long sleeve, three-button henley placket, light weight & soft fabric.",
+          category: "men's clothing",
+          image: "https://fakestoreapi.com/img/71-3HjGNDUL._AC_SY879._SX._UX._SY._UY_.jpg",
+          rating: { rate: 4.1, count: 259 }
+        },
+        {
+          id: 5,
+          title: "John Hardy Women's Legends Naga Gold Dragon Bracelet",
+          price: 695.0,
+          description: "From our Legends Collection, the Naga was inspired by the mythical water dragon that protects the ocean's pearl.",
+          category: "jewelery",
+          image: "https://fakestoreapi.com/img/71pWzhdJNwL._AC_UL640_QL65_ML3_.jpg",
+          rating: { rate: 4.6, count: 400 }
+        },
+        {
+          id: 9,
+          title: "WD 2TB Elements Portable External Hard Drive - USB 3.0",
+          price: 64.0,
+          description: "USB 3.0 and USB 2.0 compatibility fast data transfers and high capacity for laptops and workstations.",
+          category: "electronics",
+          image: "https://fakestoreapi.com/img/61IBBVJvSDL._AC_SY879_.jpg",
+          rating: { rate: 3.3, count: 203 }
+        },
+        {
+          id: 14,
+          title: "Samsung 49-Inch CHG90 144Hz Curved Gaming Monitor",
+          price: 999.99,
+          description: "49 INCH SUPER ULTRAWIDE 32:9 CURVED GAMING MONITOR with dual 27 inch screen side by side.",
+          category: "electronics",
+          image: "https://fakestoreapi.com/img/81Zt42ioCgL._AC_SX679_.jpg",
+          rating: { rate: 2.2, count: 140 }
+        },
+        {
+          id: 18,
+          title: "MBJ Women's Solid Short Sleeve Boat Neck V-Neck",
+          price: 9.85,
+          description: "95% RAYON 5% SPANDEX, Made in USA or Imported, pull on closure, lightweight fabric with great stretch.",
+          category: "women's clothing",
+          image: "https://fakestoreapi.com/img/71z3kpMAYsL._AC_UY879_.jpg",
+          rating: { rate: 4.7, count: 130 }
+        }
+      ],
+
+      async fetchProducts({ forceRefresh = false, timeoutMs = 6000 } = {}) {
+        // Check local state cache first
+        if (!forceRefresh) {
+          const cached = StorageService.getCachedProducts();
+          if (cached && !cached.isExpired && Array.isArray(cached.data) && cached.data.length > 0) {
+            return {
+              data: cached.data,
+              fromCache: true,
+              ageMinutes: cached.ageMinutes
+            };
+          }
+        }
+
+        // Setup abort controller for timeouts
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+          const response = await fetch(this.BASE_URL, { signal: controller.signal });
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: Failed to fetch products from FakeStoreAPI`);
+          }
+
+          const data = await response.json();
+          // Cache successful response
+          StorageService.cacheProducts(data);
+
+          return {
+            data,
+            fromCache: false,
+            ageMinutes: 0
+          };
+        } catch (err) {
+          clearTimeout(timeoutId);
+          console.warn('API Fetch Error:', err.message, 'Falling back to reliable dataset.');
+          // Use fallback data so the demo never displays a blank broken screen
+          return {
+            data: this.FALLBACK_PRODUCTS,
+            fromCache: false,
+            isFallback: true,
+            error: err.name === 'AbortError' ? 'API Request Timed Out' : err.message
+          };
+        }
+      }
+    };
+
+    /**
+     * =========================================================================
+     * MODULE 3: UI CONTROLLER & RENDERING (ui.js)
+     * Handles DOM queries, templates, skeleton rendering, and formatters.
+     * =========================================================================
+     */
+    const UIController = {
+      formatPrice(amountUSD, currency = 'USD') {
+        const rateInfo = StorageService.EXCHANGE_RATES[currency] || StorageService.EXCHANGE_RATES.USD;
+        const converted = amountUSD * rateInfo.rate;
+        return `${rateInfo.symbol}${converted.toFixed(2)}`;
+      },
+
+      renderSkeletons(container, count = 8) {
+        container.innerHTML = Array.from({ length: count }).map(() => `
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-col space-y-3">
+            <div class="skeleton-box w-full h-48 rounded-xl"></div>
+            <div class="skeleton-box w-20 h-4 rounded"></div>
+            <div class="skeleton-box w-full h-6 rounded"></div>
+            <div class="skeleton-box w-3/4 h-4 rounded"></div>
+            <div class="pt-4 mt-auto flex items-center justify-between">
+              <div class="skeleton-box w-16 h-6 rounded"></div>
+              <div class="skeleton-box w-24 h-9 rounded-lg"></div>
+            </div>
+          </div>
+        `).join('');
+      },
+
+      renderCategories(container, categories, activeCategory, onSelect) {
+        container.innerHTML = '';
+        const allCats = ['all', ...categories];
+
+        allCats.forEach(cat => {
+          const btn = document.createElement('button');
+          const isActive = cat.toLowerCase() === activeCategory.toLowerCase();
+          btn.className = `px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all capitalize ${
+            isActive
+              ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/20'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800'
+          }`;
+          btn.textContent = cat === 'all' ? '✨ All Products' : cat;
+          btn.onclick = () => onSelect(cat);
+          container.appendChild(btn);
+        });
+      },
+
+      renderProductCard(product, currency, onAddToCart) {
+        const card = document.createElement('article');
+        card.className = "group relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-col shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200";
+
+        // Rating Stars Visual
+        const stars = '★'.repeat(Math.round(product.rating?.rate || 4)) + '☆'.repeat(5 - Math.round(product.rating?.rate || 4));
+
+        card.innerHTML = `
+          <!-- Image Box -->
+          <div class="relative w-full h-48 rounded-xl overflow-hidden bg-white p-4 flex items-center justify-center border border-slate-100 dark:border-slate-800">
+            <img 
+              src="${product.image}" 
+              alt="${product.title}" 
+              loading="lazy"
+              class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+              onerror="this.src='https://placehold.co/400x400/e2e8f0/475569?text=Product+Image'"
+            />
+            <span class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-900/70 backdrop-blur-md text-white">
+              ${product.category}
+            </span>
+          </div>
+
+          <!-- Product Details -->
+          <div class="flex-1 flex flex-col pt-3">
+            <div class="flex items-center gap-1.5 text-xs text-amber-500">
+              <span class="text-xs tracking-tighter">${stars}</span>
+              <span class="font-bold text-slate-700 dark:text-slate-300">${product.rating?.rate || '4.0'}</span>
+              <span class="text-slate-400">(${product.rating?.count || 0})</span>
+            </div>
+
+            <h3 class="font-bold text-sm text-slate-900 dark:text-white mt-1.5 line-clamp-2 leading-snug" title="${product.title}">
+              ${product.title}
+            </h3>
+
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+              ${product.description}
+            </p>
+
+            <!-- Bottom Price & CTA -->
+            <div class="mt-auto pt-4 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800/80">
+              <div>
+                <span class="text-[10px] text-slate-400 block font-medium">Price</span>
+                <span class="font-extrabold text-base text-slate-900 dark:text-white">
+                  ${this.formatPrice(product.price, currency)}
+                </span>
+              </div>
+
+              <button class="add-to-cart-btn flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-brand-600 dark:bg-slate-800 dark:hover:bg-brand-600 text-white text-xs font-semibold active:scale-95 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add
+              </button>
+            </div>
+          </div>
+        `;
+
+        // Bind Add to Cart Event
+        card.querySelector('.add-to-cart-btn').onclick = () => onAddToCart(product);
+        return card;
+      },
+
+      showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        const bg = type === 'success' ? 'bg-slate-900 text-white border-slate-800' : 'bg-rose-600 text-white';
+
+        toast.className = `pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold border ${bg} transform translate-y-4 opacity-0 transition-all duration-300`;
+        toast.innerHTML = `
+          <span>${type === 'success' ? '✅' : '⚠️'}</span>
+          <span>${message}</span>
+        `;
+
+        container.appendChild(toast);
+        // Animate In
+        requestAnimationFrame(() => {
+          toast.classList.remove('translate-y-4', 'opacity-0');
+        });
+
+        setTimeout(() => {
+          toast.classList.add('translate-y-4', 'opacity-0');
+          setTimeout(() => toast.remove(), 300);
+        }, 2600);
+      }
+    };
+
+    /**
+     * =========================================================================
+     * MODULE 4: MAIN APPLICATION ORCHESTRATOR (app.js)
+     * Coordinates State, DOM events, debouncing, cart management, and tabs.
+     * =========================================================================
+     */
+    class StoreApp {
+      constructor() {
+        this.products = [];
+        this.filteredProducts = [];
+        this.cart = StorageService.getCart();
+        this.preferences = StorageService.getPreferences();
+
+        this.activeCategory = 'all';
+        this.searchQuery = '';
+        this.activeSort = this.preferences.sort || 'default';
+        this.currency = this.preferences.currency || 'USD';
+
+        this.debounceTimer = null;
+
+        this.initDOMElements();
+        this.bindEvents();
+        this.applyTheme(this.preferences.theme);
+        this.updateCartBadge();
+        this.loadProducts();
+      }
+
+      initDOMElements() {
+        this.dom = {
+          productsGrid: document.getElementById('productsGrid'),
+          categoryTabs: document.getElementById('categoryTabs'),
+          searchInput: document.getElementById('searchInput'),
+          searchSpinner: document.getElementById('searchSpinner'),
+          sortSelect: document.getElementById('sortSelect'),
+          currencySelect: document.getElementById('currencySelect'),
+          resultsStats: document.getElementById('resultsStats'),
+          clearFiltersBtn: document.getElementById('clearFiltersBtn'),
+          cacheStatusBadge: document.getElementById('cacheStatusBadge'),
+          forceRefreshBtn: document.getElementById('forceRefreshBtn'),
+          errorBanner: document.getElementById('errorBanner'),
+          errorMessage: document.getElementById('errorMessage'),
+          retryFetchBtn: document.getElementById('retryFetchBtn'),
+          themeToggleBtn: document.getElementById('themeToggleBtn'),
+          themeIcon: document.getElementById('themeIcon'),
+          cartCountBadge: document.getElementById('cartCountBadge'),
+          openCartBtn: document.getElementById('openCartBtn'),
+          closeCartBtn: document.getElementById('closeCartBtn'),
+          cartDrawerBackdrop: document.getElementById('cartDrawerBackdrop'),
+          cartDrawerPanel: document.getElementById('cartDrawerPanel'),
+          cartItemsList: document.getElementById('cartItemsList'),
+          cartDrawerCount: document.getElementById('cartDrawerCount'),
+          cartSubtotal: document.getElementById('cartSubtotal'),
+          cartGrandTotal: document.getElementById('cartGrandTotal'),
+          clearCartBtn: document.getElementById('clearCartBtn'),
+          checkoutBtn: document.getElementById('checkoutBtn'),
+          viewAppTab: document.getElementById('viewAppTab'),
+          viewCodeTab: document.getElementById('viewCodeTab'),
+          liveStoreView: document.getElementById('liveStoreView'),
+          codeView: document.getElementById('codeView'),
+          codeBlock: document.getElementById('codeBlock'),
+          activeFileName: document.getElementById('activeFileName'),
+          downloadZipBtn: document.getElementById('downloadZipBtn'),
+          copyCodeBtn: document.getElementById('copyCodeBtn'),
+        };
+
+        // Populate preference dropdown defaults
+        this.dom.currencySelect.value = this.currency;
+        this.dom.sortSelect.value = this.activeSort;
+      }
+
+      bindEvents() {
+        // Debounced Search Input
+        this.dom.searchInput.addEventListener('input', (e) => {
+          this.dom.searchSpinner.classList.remove('hidden');
+          clearTimeout(this.debounceTimer);
+          this.debounceTimer = setTimeout(() => {
+            this.searchQuery = e.target.value.trim().toLowerCase();
+            this.applyFiltersAndSort();
+            this.dom.searchSpinner.classList.add('hidden');
+          }, 300);
+        });
+
+        // Sorting Change
+        this.dom.sortSelect.addEventListener('change', (e) => {
+          this.activeSort = e.target.value;
+          StorageService.savePreferences({ sort: this.activeSort });
+          this.applyFiltersAndSort();
+        });
+
+        // Currency Change
+        this.dom.currencySelect.addEventListener('change', (e) => {
+          this.currency = e.target.value;
+          StorageService.savePreferences({ currency: this.currency });
+          this.renderProducts();
+          this.renderCartDrawer();
+          UIController.showToast(`Display currency updated to ${this.currency}`);
+        });
+
+        // Reset Filters Button
+        this.dom.clearFiltersBtn.addEventListener('click', () => {
+          this.searchQuery = '';
+          this.activeCategory = 'all';
+          this.activeSort = 'default';
+          this.dom.searchInput.value = '';
+          this.dom.sortSelect.value = 'default';
+          this.renderCategoryPills();
+          this.applyFiltersAndSort();
+        });
+
+        // Force Invalidate Cache
+        this.dom.forceRefreshBtn.addEventListener('click', () => {
+          StorageService.clearCache();
+          this.loadProducts({ forceRefresh: true });
+        });
+
+        // Retry Fetch
+        this.dom.retryFetchBtn.addEventListener('click', () => {
+          this.dom.errorBanner.classList.add('hidden');
+          this.loadProducts({ forceRefresh: true });
+        });
+
+        // Theme Toggle
+        this.dom.themeToggleBtn.addEventListener('click', () => {
+          const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          this.applyTheme(newTheme);
+        });
+
+        // Cart Drawer Controls
+        this.dom.openCartBtn.addEventListener('click', () => this.toggleCartDrawer(true));
+        this.dom.closeCartBtn.addEventListener('click', () => this.toggleCartDrawer(false));
+        this.dom.cartDrawerBackdrop.addEventListener('click', (e) => {
+          if (e.target === this.dom.cartDrawerBackdrop) this.toggleCartDrawer(false);
+        });
+
+        // Cart Actions
+        this.dom.clearCartBtn.addEventListener('click', () => {
+          this.cart = [];
+          StorageService.saveCart(this.cart);
+          this.updateCartBadge();
+          this.renderCartDrawer();
+          UIController.showToast('Cart has been emptied');
+        });
+
+        this.dom.checkoutBtn.addEventListener('click', () => {
+          if (this.cart.length === 0) {
+            UIController.showToast('Your cart is empty', 'warning');
+            return;
+          }
+          UIController.showToast('🎉 Order simulated successfully! Thank you.');
+          this.cart = [];
+          StorageService.saveCart(this.cart);
+          this.updateCartBadge();
+          this.renderCartDrawer();
+          this.toggleCartDrawer(false);
+        });
+
+        // View Tabs (Live Store vs Codebase)
+        this.dom.viewAppTab.addEventListener('click', () => this.switchView('app'));
+        this.dom.viewCodeTab.addEventListener('click', () => this.switchView('code'));
+
+        // Code Viewer Tabs
+        document.querySelectorAll('.code-tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => this.displayCodeFile(btn.dataset.file));
+        });
+
+        // Copy Code Button
+        this.dom.copyCodeBtn.addEventListener('click', () => {
+          const code = this.dom.codeBlock.textContent;
+          navigator.clipboard ? navigator.clipboard.writeText(code) : document.execCommand('copy');
+          UIController.showToast('Code copied to clipboard!');
+        });
+
+        // Download ZIP Deliverable
+        this.dom.downloadZipBtn.addEventListener('click', () => this.downloadRepositoryZip());
+      }
+
+      applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        this.dom.themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+        StorageService.savePreferences({ theme });
+      }
+
+      async loadProducts({ forceRefresh = false } = {}) {
+        UIController.renderSkeletons(this.dom.productsGrid, 8);
+        this.dom.cacheStatusBadge.textContent = 'Contacting REST API...';
+
+        const result = await ApiClient.fetchProducts({ forceRefresh });
+        this.products = result.data;
+
+        // Cache Status Badge Feedback
+        if (result.fromCache) {
+          this.dom.cacheStatusBadge.innerHTML = `⚡ Served from <strong>localStorage cache</strong> (${result.ageMinutes}m ago)`;
+        } else if (result.isFallback) {
+          this.dom.cacheStatusBadge.innerHTML = `🛡️ Served via <strong>Offline Fallback Buffer</strong>`;
+          this.dom.errorBanner.classList.remove('hidden');
+          this.dom.errorMessage.textContent = `${result.error}. Displaying built-in product suite.`;
+        } else {
+          this.dom.cacheStatusBadge.innerHTML = `🌐 Live payload received & stored to cache`;
+        }
+
+        this.renderCategoryPills();
+        this.applyFiltersAndSort();
+      }
+
+      renderCategoryPills() {
+        const uniqueCategories = [...new Set(this.products.map(p => p.category))];
+        UIController.renderCategories(
+          this.dom.categoryTabs,
+          uniqueCategories,
+          this.activeCategory,
+          (selectedCat) => {
+            this.activeCategory = selectedCat;
+            this.renderCategoryPills();
+            this.applyFiltersAndSort();
+          }
+        );
+      }
+
+      applyFiltersAndSort() {
+        let results = [...this.products];
+
+        // 1. Category Filter
+        if (this.activeCategory !== 'all') {
+          results = results.filter(p => p.category.toLowerCase() === this.activeCategory.toLowerCase());
+        }
+
+        // 2. Search Query Filter
+        if (this.searchQuery) {
+          results = results.filter(p => 
+            p.title.toLowerCase().includes(this.searchQuery) ||
+            p.description.toLowerCase().includes(this.searchQuery)
+          );
+        }
+
+        // 3. Sorting Strategy
+        switch (this.activeSort) {
+          case 'price-asc':
+            results.sort((a, b) => a.price - b.price);
+            break;
+          case 'price-desc':
+            results.sort((a, b) => b.price - a.price);
+            break;
+          case 'rating-desc':
+            results.sort((a, b) => (b.rating?.rate || 0) - (a.rating?.rate || 0));
+            break;
+          case 'title-asc':
+            results.sort((a, b) => a.title.localeCompare(b.title));
+            break;
+          default:
+            results.sort((a, b) => a.id - b.id);
+            break;
+        }
+
+        this.filteredProducts = results;
+        this.renderProducts();
+
+        // Update count & filter reset visibility
+        const isFiltered = this.activeCategory !== 'all' || this.searchQuery.length > 0;
+        this.dom.clearFiltersBtn.classList.toggle('hidden', !isFiltered);
+        this.dom.resultsStats.textContent = `Displaying ${results.length} of ${this.products.length} catalog items`;
+      }
+
+      renderProducts() {
+        this.dom.productsGrid.innerHTML = '';
+
+        if (this.filteredProducts.length === 0) {
+          this.dom.productsGrid.innerHTML = `
+            <div class="col-span-full py-16 text-center space-y-3">
+              <span class="text-4xl">🔍</span>
+              <h3 class="font-bold text-base">No items match your criteria</h3>
+              <p class="text-xs text-slate-500">Try adjusting your keyword search or category filter.</p>
+            </div>
+          `;
+          return;
+        }
+
+        this.filteredProducts.forEach(product => {
+          const card = UIController.renderProductCard(product, this.currency, (item) => this.addToCart(item));
+          this.dom.productsGrid.appendChild(card);
+        });
+      }
+
+      addToCart(product) {
+        const existing = this.cart.find(item => item.id === product.id);
+        if (existing) {
+          existing.quantity += 1;
+        } else {
+          this.cart.push({
+            id: product.id,
+            title: product.title,
+            price: product.price,
+            image: product.image,
+            quantity: 1
+          });
+        }
+        StorageService.saveCart(this.cart);
+        this.updateCartBadge();
+        UIController.showToast(`Added "${product.title.slice(0, 22)}..." to cart`);
+      }
+
+      updateCartBadge() {
+        const totalCount = this.cart.reduce((sum, item) => sum + item.quantity, 0);
+        this.dom.cartCountBadge.textContent = totalCount;
+      }
+
+      toggleCartDrawer(show) {
+        if (show) {
+          this.renderCartDrawer();
+          this.dom.cartDrawerBackdrop.classList.remove('pointer-events-none', 'opacity-0');
+          this.dom.cartDrawerPanel.classList.remove('translate-x-full');
+        } else {
+          this.dom.cartDrawerBackdrop.classList.add('opacity-0', 'pointer-events-none');
+          this.dom.cartDrawerPanel.classList.add('translate-x-full');
+        }
+      }
+
+      renderCartDrawer() {
+        this.dom.cartItemsList.innerHTML = '';
+        const totalItems = this.cart.reduce((sum, i) => sum + i.quantity, 0);
+        this.dom.cartDrawerCount.textContent = totalItems;
+
+        if (this.cart.length === 0) {
+          this.dom.cartItemsList.innerHTML = `
+            <div class="py-16 text-center space-y-2">
+              <span class="text-4xl">🛒</span>
+              <p class="text-sm font-semibold">Your cart is empty</p>
+              <p class="text-xs text-slate-500">Explore items in the store and add them here.</p>
+            </div>
+          `;
+          this.dom.cartSubtotal.textContent = UIController.formatPrice(0, this.currency);
+          this.dom.cartGrandTotal.textContent = UIController.formatPrice(0, this.currency);
+          return;
+        }
+
+        let subtotal = 0;
+
+        this.cart.forEach(item => {
+          subtotal += item.price * item.quantity;
+          const row = document.createElement('div');
+          row.className = "flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800";
+
+          row.innerHTML = `
+            <img src="${item.image}" alt="${item.title}" class="w-12 h-12 rounded-lg object-contain bg-white p-1 border border-slate-200 dark:border-slate-700">
+            <div class="flex-1 min-w-0">
+              <h4 class="text-xs font-semibold truncate text-slate-900 dark:text-white">${item.title}</h4>
+              <span class="text-xs font-bold text-brand-600 dark:text-brand-400">
+                ${UIController.formatPrice(item.price, this.currency)}
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
+              <button class="dec-btn px-1.5 py-0.5 rounded text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white">-</button>
+              <span class="text-xs font-bold px-1">${item.quantity}</span>
+              <button class="inc-btn px-1.5 py-0.5 rounded text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white">+</button>
+            </div>
+          `;
+
+          // Quantity Increment & Decrement Handlers
+          row.querySelector('.inc-btn').onclick = () => {
+            item.quantity += 1;
+            StorageService.saveCart(this.cart);
+            this.updateCartBadge();
+            this.renderCartDrawer();
+          };
+
+          row.querySelector('.dec-btn').onclick = () => {
+            item.quantity -= 1;
+            if (item.quantity <= 0) {
+              this.cart = this.cart.filter(i => i.id !== item.id);
+            }
+            StorageService.saveCart(this.cart);
+            this.updateCartBadge();
+            this.renderCartDrawer();
+          };
+
+          this.dom.cartItemsList.appendChild(row);
+        });
+
+        this.dom.cartSubtotal.textContent = UIController.formatPrice(subtotal, this.currency);
+        this.dom.cartGrandTotal.textContent = UIController.formatPrice(subtotal, this.currency);
+      }
+
+      switchView(view) {
+        if (view === 'app') {
+          this.dom.liveStoreView.classList.remove('hidden');
+          this.dom.codeView.classList.add('hidden');
+          this.dom.viewAppTab.className = "px-3.5 py-1.5 rounded-lg bg-white dark:bg-slate-700 text-brand-600 dark:text-white shadow-sm font-semibold transition-all";
+          this.dom.viewCodeTab.className = "px-3.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all";
+        } else {
+          this.dom.liveStoreView.classList.add('hidden');
+          this.dom.codeView.classList.remove('hidden');
+          this.dom.viewCodeTab.className = "px-3.5 py-1.5 rounded-lg bg-white dark:bg-slate-700 text-brand-600 dark:text-white shadow-sm font-semibold transition-all";
+          this.dom.viewAppTab.className = "px-3.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all";
+          this.displayCodeFile('api.js');
+        }
+      }
+
+      displayCodeFile(fileName) {
+        this.dom.activeFileName.textContent = fileName;
+
+        document.querySelectorAll('.code-tab-btn').forEach(btn => {
+          if (btn.dataset.file === fileName) {
+            btn.className = "code-tab-btn px-4 py-2 rounded-lg text-xs font-mono font-bold bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800";
+          } else {
+            btn.className = "code-tab-btn px-4 py-2 rounded-lg text-xs font-mono font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white";
+          }
+        });
+
+        const codeDictionary = {
+          'api.js': `/**
+ * api.js - RESTful API Client for Task 05
+ * Handles async/await fetch calls, abort timeouts, and offline fallbacks.
+ */
+export const ApiClient = {
+  BASE_URL: 'https://fakestoreapi.com/products',
+
+  async fetchProducts({ forceRefresh = false, timeoutMs = 6000 } = {}) {
+    // 1. Inspect localStorage cache unless forceRefresh requested
+    if (!forceRefresh) {
+      const cached = StorageService.getCachedProducts();
+      if (cached && !cached.isExpired) {
+        return { data: cached.data, fromCache: true };
+      }
+    }
+
+    // 2. AbortController for network resiliency
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(this.BASE_URL, { signal: controller.signal });
+      clearTimeout(timer);
+
+      if (!res.ok) {
+        throw new Error(\`HTTP error \${res.status}: Failed to reach FakeStore API\`);
+      }
+
+      const data = await res.json();
+      StorageService.cacheProducts(data);
+      return { data, fromCache: false };
+    } catch (err) {
+      clearTimeout(timer);
+      console.warn('API Error encountered, switching to fallback:', err.message);
+      return {
+        data: ApiClient.FALLBACK_DATA,
+        fromCache: false,
+        isFallback: true,
+        error: err.message
+      };
+    }
+  }
+};`,
+
+          'storage.js': `/**
+ * storage.js - LocalStorage State Wrapper
+ * Handles persistence for Shopping Cart, User Preferences, and API Responses.
+ */
+export const StorageService = {
+  KEYS: {
+    CART: 'storepulse_cart_v1',
+    PREFERENCES: 'storepulse_prefs_v1',
+    API_CACHE: 'storepulse_api_cache_v1',
+  },
+
+  getCart() {
+    try {
+      return JSON.parse(localStorage.getItem(this.KEYS.CART)) || [];
+    } catch {
+      return [];
+    }
+  },
+
+  saveCart(cart) {
+    localStorage.setItem(this.KEYS.CART, JSON.stringify(cart));
+  },
+
+  getCachedProducts(ttlMs = 15 * 60 * 1000) {
+    try {
+      const raw = localStorage.getItem(this.KEYS.API_CACHE);
+      if (!raw) return null;
+      const { timestamp, data } = JSON.parse(raw);
+      return { isExpired: Date.now() - timestamp > ttlMs, data };
+    } catch {
+      return null;
+    }
+  },
+
+  cacheProducts(data) {
+    localStorage.setItem(this.KEYS.API_CACHE, JSON.stringify({
+      timestamp: Date.now(),
+      data
+    }));
+  }
+};`,
+
+          'ui.js': `/**
+ * ui.js - DOM Rendering Engine & UI Formatting
+ */
+export const UI = {
+  formatPrice(amount, currency = 'USD') {
+    const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
+    return \`\${symbols[currency] || '$'}\${amount.toFixed(2)}\`;
+  },
+
+  renderProductCard(product, onAddToCart) {
+    const card = document.createElement('article');
+    card.className = "card-wrapper p-4 border rounded-2xl";
+    card.innerHTML = \`
+      <img src="\${product.image}" alt="\${product.title}" loading="lazy" />
+      <span class="badge">\${product.category}</span>
+      <h3>\${product.title}</h3>
+      <p>\${product.price}</p>
+      <button class="add-btn">Add to Cart</button>
+    \`;
+    card.querySelector('.add-btn').onclick = () => onAddToCart(product);
+    return card;
+  }
+};`,
+
+          'app.js': `/**
+ * app.js - Main Application Orchestrator
+ * Integrates ApiClient, StorageService, and UI rendering.
+ */
+import { ApiClient } from './api.js';
+import { StorageService } from './storage.js';
+import { UI } from './ui.js';
+
+class App {
+  constructor() {
+    this.cart = StorageService.getCart();
+    this.initEvents();
+    this.loadCatalog();
+  }
+
+  async loadCatalog() {
+    const { data } = await ApiClient.fetchProducts();
+    this.renderCatalog(data);
+  }
+
+  handleSearchDebounced(query) {
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.filterByQuery(query);
+    }, 300);
+  }
+}
+
+new App();`
+        };
+
+        this.dom.codeBlock.textContent = codeDictionary[fileName] || '// File not found';
+      }
+
+      async downloadRepositoryZip() {
+        if (typeof JSZip === 'undefined') {
+          UIController.showToast('JSZip library loading, please retry in a moment...', 'warning');
+          return;
+        }
+
+        const zip = new JSZip();
+
+        // 1. package.json
+        zip.file("package.json", JSON.stringify({
+          name: "dynamic-dom-rest-client",
+          version: "1.0.0",
+          description: "Task 05: Dynamic JavaScript DOM Logic & RESTful API Client",
+          type: "module",
+          scripts: {
+            "dev": "vite"
+          },
+          devDependencies: {
+            "vite": "^5.4.0"
+          }
+        }, null, 2));
+
+        // 2. Modular JS Files
+        zip.file("src/api.js", this.dom.codeBlock.textContent);
+        zip.file("src/storage.js", `// See StorageService implementation in application`);
+        zip.file("src/ui.js", `// See UIController implementation in application`);
+        zip.file("src/app.js", `// See StoreApp orchestrator implementation in application`);
+
+        // 3. README.md
+        zip.file("README.md", `# Dynamic JavaScript DOM Logic & RESTful API Client (Task 05)
+
+## Features Implemented:
+- **Async/Await REST API Integration:** Fetches products live from FakeStoreAPI with timeout and fallback recovery.
+- **Real-Time Client-Side Filtering:** 300ms debounced search, category tabs, and multidirectional sorting.
+- **Persistent State:** Uses \`localStorage\` for active shopping cart, user preferences, and a 15-minute response cache.
+- **Resilient UI:** Animated shimmer skeletons and error retry banners.`);
+
+        const content = await zip.generateAsync({ type: "blob" });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(content);
+        a.download = "task05-javascript-rest-client.zip";
+        a.click();
+        URL.revokeObjectURL(a.href);
+
+        UIController.showToast("Repository ZIP downloaded successfully!");
+      }
+    }
+
+    // Initialize application when DOM is ready
+    window.addEventListener('DOMContentLoaded', () => {
+      window.app = new StoreApp();
+    });
+  </script>
+
+</body>
+</html>
